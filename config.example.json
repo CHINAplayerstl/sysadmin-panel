@@ -1,0 +1,35 @@
+{
+  "_说明": "把本文件复制为 config.json 后按需修改。程序首次启动若找不到 config.json 会自动生成一份，并随机分配 access_token 与 agent_secret。",
+
+  "host": "127.0.0.1",
+  "port": 8787,
+
+  "_host_说明": [
+    "127.0.0.1 = 只有本机能访问（默认，最安全）",
+    "0.0.0.0   = 局域网可访问。必须配置 access_token，否则启动会被拒绝"
+  ],
+
+  "access_token": "请填一个长随机串，例如 python -c \"import secrets;print(secrets.token_urlsafe(24))\"",
+
+  "agent_secret": "由程序自动生成，留空即可",
+
+  "allow_arbitrary_commands": false,
+
+  "_allow_arbitrary_commands_说明": "false = 只允许下面的白名单命令；true = 允许任意 cmd 命令（危险）",
+
+  "command_whitelist": [
+    "ipconfig", "ping", "tracert", "nslookup", "netstat", "arp", "route",
+    "tasklist", "systeminfo", "whoami", "hostname", "ver", "set",
+    "dir", "type", "tree", "find", "findstr", "where", "chcp",
+    "driverquery", "net", "vol", "date", "time", "echo", "path"
+  ],
+
+  "_file_roots_说明": "文件浏览器允许访问的根目录；留空 = 本机所有盘符（等于全盘可读）",
+  "file_roots": [],
+
+  "command_timeout": 30,
+  "screenshot_quality": 70,
+  "sample_interval": 1.0,
+  "history_points": 120,
+  "debug": false
+}

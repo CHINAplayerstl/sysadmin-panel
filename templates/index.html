@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>系统管理面板</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<!-- ============================ 登录遮罩 ============================ -->
+<div class="login-mask" id="login-mask">
+  <div class="login-box">
+    <div class="login-logo">
+      <span class="logo-dot"></span>
+      <h1>系统管理面板</h1>
+    </div>
+    <p class="login-sub">需要访问令牌才能进入。令牌在服务端 config.json 里，启动时也会打印在控制台。</p>
+    <div class="login-field">
+      <input type="password" id="login-token" placeholder="粘贴访问令牌…" autocomplete="off" spellcheck="false">
+      <button class="btn btn-primary" id="login-btn">进入</button>
+    </div>
+    <div class="login-error" id="login-error"></div>
+    <div class="login-tip">令牌只存在你这台机器的 localStorage 里，不会发往任何第三方。</div>
+  </div>
+</div>
+
+<!-- ============================ 顶部状态栏 ============================ -->
+<header class="topbar">
+  <div class="topbar-left">
+    <span class="logo-dot"></span>
+    <strong class="brand">系统管理面板</strong>
+    <span class="ver">v{{ version }}</span>
+  </div>
+
+  <div class="topbar-stats">
+    <div class="stat">
+      <span class="stat-label">主机</span>
+      <span class="stat-value" id="tb-host">—</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">开机时长</span>
+      <span class="stat-value" id="tb-uptime">—</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">CPU</span>
+      <span class="stat-value" id="tb-cpu">—</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">内存</span>
+      <span class="stat-value" id="tb-mem">—</span>
+    </div>
+  </div>
+
+  <div class="topbar-right">
+    <span class="conn" id="tb-conn"><i class="dot"></i><span id="tb-conn-text">连接中…</span></span>
+    <button class="btn btn-ghost" id="btn-live" title="暂停/恢复自动刷新">暂停刷新</button>
+    <button class="btn btn-ghost" id="btn-logout" title="清除本地令牌">退出</button>
+  </div>
+</header>
+
+<!-- ============================ 主区域 ============================ -->
+<main class="grid">
+
+  <!-- 系统信息 -->
+  <section class="card" id="card-system">
+    <div class="card-head">
+      <h2>系统信息</h2>
+      <button class="btn btn-mini" data-refresh="system">刷新</button>
+    </div>
+    <div class="card-body">
+      <div class="kv-grid" id="sys-grid">
+        <div class="empty">加载中…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 实时监控 -->
+  <section class="card card-wide" id="card-charts">
+    <div class="card-head">
+      <h2>实时监控</h2>
+      <span class="head-note" id="chart-note">每秒采样</span>
+    </div>
+    <div class="card-body">
+      <div class="chart-wrap"><div class="chart" id="chart-cpu"></div></div>
+      <div class="chart-wrap"><div class="chart" id="chart-net"></div></div>
+      <div class="disk-row" id="disk-row"></div>
+    </div>
+  </section>
+
+  <!-- 进程管理 -->
+  <section class="card card-wide" id="card-process">
+    <div class="card-head">
+      <h2>进程管理 <span class="badge" id="proc-count">—</span></h2>
+      <div class="head-actions">
+        <span class="head-note" id="proc-status">每 3 秒自动刷新</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="toolbar">
+        <input type="search" id="proc-search" class="input" placeholder="按进程名或 PID 模糊搜索…" autocomplete="off">
+        <select id="proc-sort" class="input select">
+          <option value="cpu">按 CPU 排序</option>
+          <option value="mem">按内存排序</option>
+          <option value="name">按名称排序</option>
+          <option value="pid">按 PID 排序</option>
+        </select>
+        <select id="proc-order" class="input select">
+          <option value="desc">降序</option>
+          <option value="asc">升序</option>
+        </select>
+        <button class="btn btn-danger" id="btn-kill-selected" disabled>结束选中 (0)</button>
+      </div>
+      <div class="table-scroll">
+        <table class="table" id="proc-table">
+          <thead>
+            <tr>
+              <th class="col-check"><input type="checkbox" id="proc-select-all"></th>
+              <th class="col-pid">PID</th>
+              <th>进程名</th>
+              <th class="col-num">CPU</th>
+              <th class="col-num">内存</th>
+              <th class="col-status">状态</th>
+              <th class="col-user">用户</th>
+            </tr>
+          </thead>
+          <tbody id="proc-tbody">
+            <tr><td colspan="7" class="empty">加载中…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 电源控制 -->
+  <section class="card" id="card-power">
+    <div class="card-head">
+      <h2>电源控制</h2>
+      <span class="head-note" id="power-pending"></span>
+    </div>
+    <div class="card-body">
+      <div class="field-row">
+        <label for="power-delay">延时（秒）</label>
+        <input type="number" id="power-delay" class="input" value="0" min="0" max="86400">
+      </div>
+      <div class="power-grid">
+        <button class="btn btn-danger" data-power="shutdown">关机</button>
+        <button class="btn btn-warn" data-power="reboot">重启</button>
+        <button class="btn btn-ghost" data-power="cancel">取消关机</button>
+        <button class="btn btn-ghost" data-power="lock">锁屏</button>
+        <button class="btn btn-ghost" data-power="hibernate">休眠</button>
+        <button class="btn btn-ghost" data-power="sleep">睡眠</button>
+      </div>
+      <p class="hint">关机/重启会按上面的延时执行，期间可用「取消关机」撤销。</p>
+    </div>
+  </section>
+
+  <!-- 屏幕监控 -->
+  <section class="card" id="card-screen">
+    <div class="card-head">
+      <h2>屏幕监控</h2>
+      <span class="head-note" id="screen-meta">—</span>
+    </div>
+    <div class="card-body">
+      <div class="screen-frame" id="screen-frame">
+        <img id="screen-img" alt="屏幕画面加载中">
+        <div class="screen-cover" id="screen-cover">已暂停</div>
+      </div>
+      <div class="toolbar">
+        <button class="btn btn-primary" id="btn-screen-toggle">开始</button>
+        <select id="screen-fps" class="input select">
+          <option value="1000">1 帧/秒</option>
+          <option value="500">2 帧/秒</option>
+          <option value="2000">0.5 帧/秒</option>
+          <option value="3000">0.33 帧/秒</option>
+        </select>
+        <button class="btn btn-ghost" id="btn-screen-shot">截图下载</button>
+        <button class="btn btn-ghost" id="btn-screen-full">全屏</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 文件浏览器 -->
+  <section class="card card-wide" id="card-files">
+    <div class="card-head">
+      <h2>文件浏览器</h2>
+      <span class="head-note" id="file-count">—</span>
+    </div>
+    <div class="card-body">
+      <div class="toolbar">
+        <button class="btn btn-mini" id="btn-file-up">上级</button>
+        <input type="text" id="file-path" class="input grow" placeholder="输入路径后回车，例如 D:\ 或 C:\Users">
+        <button class="btn btn-mini" id="btn-file-go">转到</button>
+        <button class="btn btn-mini" id="btn-file-refresh">刷新</button>
+        <select id="file-drives" class="input select"></select>
+      </div>
+      <div class="table-scroll table-short">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>名称</th>
+              <th class="col-num">大小</th>
+              <th class="col-time">修改时间</th>
+              <th class="col-act">操作</th>
+            </tr>
+          </thead>
+          <tbody id="file-tbody">
+            <tr><td colspan="4" class="empty">加载中…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 剪贴板 -->
+  <section class="card" id="card-clipboard">
+    <div class="card-head">
+      <h2>剪贴板</h2>
+      <button class="btn btn-mini" data-refresh="clipboard">刷新</button>
+    </div>
+    <div class="card-body">
+      <textarea id="clip-text" class="code-area" readonly placeholder="（空）"></textarea>
+      <p class="hint" id="clip-meta">—</p>
+    </div>
+  </section>
+
+  <!-- 启动项 -->
+  <section class="card card-wide" id="card-startup">
+    <div class="card-head">
+      <h2>开机启动项 <span class="badge" id="startup-count">—</span></h2>
+      <button class="btn btn-mini" data-refresh="startup">刷新</button>
+    </div>
+    <div class="card-body">
+      <div class="table-scroll table-short">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>名称</th>
+              <th>来源</th>
+              <th>位置</th>
+              <th>命令</th>
+            </tr>
+          </thead>
+          <tbody id="startup-tbody">
+            <tr><td colspan="4" class="empty">加载中…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 命令执行 -->
+  <section class="card card-wide" id="card-exec">
+    <div class="card-head">
+      <h2>命令执行</h2>
+      <span class="head-note" id="exec-mode">—</span>
+    </div>
+    <div class="card-body">
+      <div class="toolbar">
+        <span class="prompt">&gt;</span>
+        <input type="text" id="exec-input" class="input grow mono" placeholder="ipconfig /all    （回车执行）" autocomplete="off" spellcheck="false">
+        <button class="btn btn-primary" id="btn-exec-run">执行</button>
+      </div>
+      <div class="presets" id="exec-presets"></div>
+      <pre class="console" id="exec-output">等待执行…</pre>
+      <p class="hint" id="exec-meta">—</p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <span class="warn-text">⚠ 本服务能结束进程、执行命令、查看屏幕，属于「裸奔型」工具：请只监听本机（127.0.0.1），绝不要映射到公网。</span>
+</footer>
+
+<!-- ============================ 通用组件 ============================ -->
+<div class="toasts" id="toasts"></div>
+
+<div class="modal-mask" id="modal-mask">
+  <div class="modal">
+    <h3 id="modal-title">确认</h3>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="modal-cancel">取消</button>
+      <button class="btn btn-danger" id="modal-ok">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- ECharts：优先用本地文件（离线可用），缺失时退回 CDN -->
+<script src="{{ url_for('static', filename='vendor/echarts.min.js') }}"></script>
+<script>
+  if (typeof echarts === 'undefined') {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"><\/script>');
+  }
+</script>
+<script src="{{ url_for('static', filename='js/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ui.js') }}"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modules.js') }}"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

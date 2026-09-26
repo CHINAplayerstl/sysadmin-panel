@@ -1,0 +1,20 @@
+# 统一换行符，避免不同平台 clone 下来文件乱掉
+# 源码用 LF；Windows 脚本用 CRLF（cmd.exe 对 CRLF 更友好）
+* text=auto
+
+*.py      text eol=lf
+*.js      text eol=lf
+*.css     text eol=lf
+*.html    text eol=lf
+*.md      text eol=lf
+*.json    text eol=lf
+*.txt     text eol=lf
+*.gitignore text eol=lf
+
+*.cmd     text eol=crlf
+*.bat     text eol=crlf
+*.ps1     text eol=crlf
+
+# 第三方压缩文件保持原样，别再动它
+*.min.js  -text
+*.min.css -text
